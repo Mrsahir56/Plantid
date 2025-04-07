@@ -3,28 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Title will be set dynamically -->
     <title>Smart Plant Identifier</title>
+
     <!-- Google Font: Alata -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Alata&display=swap" rel="stylesheet">
+
     <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
+    <!-- Supabase Client Library CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
+        /* --- Global Styles & Variables --- */
         :root {
             --primary-green: #6a9a2c;
             --accent-red: #ff3131;
-            --background-beige: #eee4b3;
+            --background-beige: #eee4b3; /* Tool background */
+            --auth-background-beige: #f0e6be; /* Auth background */
+            --account-background-beige: #f3e9d2; /* Account page background - slightly different beige */
             --text-dark: #333;
             --text-light: #fff;
             --border-color-light: #a0a0a0;
-            --border-color-dark: #000;
+            --border-color-dark: #000; /* Used for dividers in account page */
             --font-main: 'Alata', sans-serif;
-            --container-max-width: 500px; /* Max width for content */
-            --loader-duration: 7s; /* Define loader duration (visual only, actual time depends on API) */
+            --container-max-width: 500px; /* Max width for tool content */
+            --loader-duration: 7s;
+            --profile-icon-size: 35px; /* Size for header profile icon */
+            --profile-pic-size: 115px; /* Size for account page profile picture */
         }
 
         *, *::before, *::after {
@@ -37,29 +49,54 @@
             height: 100%;
             width: 100%;
             overflow-x: hidden; /* Prevent horizontal scroll */
+            scroll-behavior: smooth; /* Optional: Smooth scrolling */
         }
 
         body {
             font-family: var(--font-main);
-            background-color: var(--background-beige);
+            background-color: var(--background-beige); /* Default to tool background */
             color: var(--text-dark);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start; /* Align to top */
             min-height: 100vh;
-            padding: 0; /* Remove body padding */
+            padding: 0;
+            transition: background-color 0.3s ease; /* Smooth background transition */
         }
 
+        /* --- View Wrappers --- */
+        #tool-view, #auth-view, #account-view {
+            display: none; /* Hidden initially */
+            width: 100%;
+            min-height: 100vh;
+        }
+        #tool-view.active, #auth-view.active, #account-view.active {
+            display: flex; /* Use flex for active views */
+        }
+
+        #tool-view {
+            justify-content: center;
+            align-items: flex-start;
+        }
+        #auth-view {
+            justify-content: center;
+            align-items: center;
+            background-color: var(--auth-background-beige);
+        }
+        #account-view {
+            flex-direction: column;
+            background-color: var(--account-background-beige);
+        }
+
+
+        /* --- Plant Identifier Tool Styles --- */
         .app-container {
             width: 100%;
             max-width: var(--container-max-width);
             background-color: var(--background-beige);
-            min-height: 100vh; /* Ensure it takes full height */
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); /* Subtle shadow for definition */
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
-            position: relative; /* Needed for potential future absolute positioning inside */
-            z-index: 1; /* Ensure app is above default body background but below loader */
+            position: relative;
+            z-index: 1;
         }
 
         header {
@@ -67,380 +104,194 @@
             color: var(--text-light);
             padding: 1.2rem 1rem;
             text-align: center;
-            font-size: 1.5rem; /* Base size */
-            font-weight: bold; /* Alata is regular by default */
+            font-size: 1.5rem;
+            font-weight: bold;
+            position: relative; /* Needed for absolute positioning of icons */
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center title */
         }
+
+        /* Common styles for header action buttons */
+        .header-action-button {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 50%;
+            right: 1rem;
+            transform: translateY(-50%);
+            width: var(--profile-icon-size);
+            height: var(--profile-icon-size);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--text-light);
+            overflow: hidden;
+            padding: 0;
+            background: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .header-action-button img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .header-action-button i { /* Style for icon-based buttons */
+            font-size: calc(var(--profile-icon-size) * 0.55); /* Adjust icon size relative to button */
+            color: var(--text-light);
+        }
+
+        /* Specific Header Buttons */
+        #profile-icon-button {
+            /* Inherits .header-action-button styles */
+        }
+        #signup-icon-button {
+            /* Inherits .header-action-button styles */
+            border-style: dashed; /* Slightly different look for sign up */
+        }
+
+        /* Conditional Display of Header Buttons */
+        body:not(.logged-in) #signup-icon-button {
+            display: flex; /* Use flex to center icon */
+        }
+        body:not(.logged-in) #profile-icon-button {
+            display: none;
+        }
+        body.logged-in #signup-icon-button {
+            display: none;
+        }
+        body.logged-in #profile-icon-button {
+            display: flex; /* Use flex to center image */
+        }
+
 
         main {
             padding: 1.5rem;
-            flex-grow: 1; /* Allows main to fill available space */
+            flex-grow: 1;
         }
 
         /* Page Sections - Control Visibility */
         #page-upload, #page-results {
-            display: none; /* Hide both initially */
+            display: none;
             flex-direction: column;
-            gap: 1.5rem; /* Spacing between elements */
+            gap: 1.5rem;
         }
-
         #page-upload.active, #page-results.active {
-            display: flex; /* Show active page */
+            display: flex;
         }
 
         /* --- Page 1: Upload Styles --- */
-        .upload-instructions {
-            text-align: center;
-            font-size: 1.1rem; /* Adjusted size as per previous request */
-            font-weight: bold;
-             color: var(--text-dark);
-        }
-
-        .drop-zone {
-            border: 2px dashed var(--border-color-dark);
-            border-radius: 15px;
-            padding: 2rem 1rem;
-            text-align: center;
-            background-color: #f8f4e3; /* Slightly lighter beige */
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            position: relative; /* For positioning preview */
-        }
-        #image-preview-container {
-             max-width: 100%;
-             max-height: 150px; /* Limit preview height */
-             margin-bottom: 1rem;
-             display: none; /* Hidden initially */
-        }
-        #image-preview {
-             max-width: 100%;
-             max-height: 150px;
-             border-radius: 5px;
-             object-fit: cover;
-        }
-
-        .drop-zone.dragover {
-            background-color: #e0d9bA; /* Highlight on drag over */
-        }
-
-        .drop-zone-icon {
-            font-size: 3rem;
-            color: var(--primary-green);
-        }
-
-        .drop-zone-text {
-            color: var(--text-dark);
-            font-weight: bold;
-        }
-
-        .browse-button {
-            background-color: var(--primary-green);
-            color: var(--text-light);
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 25px;
-            font-family: var(--font-main);
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            font-weight: bold; /* Match image boldness */
-        }
-
-        .browse-button:hover {
-            background-color: #5a8a1c; /* Darker green on hover */
-        }
-
-        .identify-button {
-            background-color: var(--accent-red);
-            color: var(--text-light);
-            padding: 0.8rem 2rem;
-            border: none;
-            border-radius: 25px;
-            font-family: var(--font-main);
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease, opacity 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            font-weight: bold; /* Match image boldness */
-            margin: 0 auto; /* Center the button */
-            width: fit-content; /* Size to content */
-            opacity: 0.5; /* Disabled look initially */
-            pointer-events: none; /* Disable clicks initially */
-        }
-        .identify-button.enabled {
-            opacity: 1;
-            pointer-events: auto; /* Enable clicks */
-            cursor: pointer;
-        }
-
-
-        .identify-button:hover:not(:disabled) {
-            background-color: #e01f1f; /* Darker red on hover */
-        }
-
-         .identify-button .icon {
-            font-size: 1.1em;
-         }
-
-        .info-text {
-            font-size: 1.1rem; /* Slightly reduced from 1.2 */
-            line-height: 1.6;
-            color: var(--text-dark); /* Match text color */
-            text-align: justify; /* Justify text */
-        }
+        .upload-instructions { text-align: center; font-size: 1.1rem; font-weight: bold; color: var(--text-dark); }
+        .drop-zone { border: 2px dashed var(--border-color-dark); border-radius: 15px; padding: 2rem 1rem; text-align: center; background-color: #f8f4e3; cursor: pointer; transition: background-color 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 1rem; position: relative; }
+        #image-preview-container { max-width: 100%; max-height: 150px; margin-bottom: 1rem; display: none; }
+        #image-preview { max-width: 100%; max-height: 150px; border-radius: 5px; object-fit: cover; }
+        .drop-zone.dragover { background-color: #e0d9bA; }
+        .drop-zone-icon { font-size: 3rem; color: var(--primary-green); }
+        .drop-zone-text { color: var(--text-dark); font-weight: bold; }
+        .browse-button { background-color: var(--primary-green); color: var(--text-light); padding: 0.8rem 1.5rem; border: none; border-radius: 25px; font-family: var(--font-main); font-size: 1.1rem; cursor: pointer; transition: background-color 0.2s ease; font-weight: bold; }
+        .browse-button:hover { background-color: #5a8a1c; }
+        .identify-button { background-color: var(--accent-red); color: var(--text-light); padding: 0.8rem 2rem; border: none; border-radius: 25px; font-family: var(--font-main); font-size: 1.2rem; cursor: pointer; transition: background-color 0.2s ease, opacity 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: bold; margin: 0 auto; width: fit-content; opacity: 0.5; pointer-events: none; }
+        .identify-button.enabled { opacity: 1; pointer-events: auto; cursor: pointer; }
+        .identify-button:hover:not(:disabled) { background-color: #e01f1f; }
+        .identify-button .icon { font-size: 1.1em; }
+        .info-text { font-size: 1.1rem; line-height: 1.6; color: var(--text-dark); text-align: justify; }
 
         /* --- Page 2: Results Styles --- */
-        .results-title {
-             display: flex;
-             align-items: center;
-             gap: 0.75rem;
-             font-size: 1.3rem;
-             font-weight: bold;
-             margin-bottom: 0.5rem; /* Space below title */
-             color: var(--text-dark);
-        }
-
-        .results-title i {
-            font-size: 1.8rem; /* Make icon larger */
-             color: var(--primary-green); /* Green icon */
-        }
-
-        .info-card {
-            background-color: #f8f4e3; /* Slightly lighter beige */
-            border: 1px solid var(--border-color-dark);
-            border-radius: 10px;
-            margin-bottom: 1.5rem; /* Consistent spacing */
-            overflow: hidden; /* Ensure contents respect border radius */
-        }
-
-        .info-card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.8rem 1rem;
-            border-bottom: 1px solid var(--border-color-dark);
-            background-color: #f0e9c9; /* Slightly different header background */
-             font-weight: bold;
-             font-size: 1.1rem;
-             color: var(--text-dark);
-        }
-
-        .info-card-header i {
-            font-size: 1.5rem; /* Icon size in headers */
-             color: var(--primary-green); /* Green icons */
-        }
-
-        .info-card-body {
-            padding: 1rem;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            /* Target specific elements for results */
-            word-wrap: break-word; /* Ensure long text wraps */
-        }
-         #plant-description, #plant-habitat {
-             white-space: pre-wrap; /* Respect newlines from API if any slip through */
-         }
-
-
-        .plant-identity-card .info-card-body {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-         .plant-identity-card h3 {
-             font-size: 1rem;
-             margin-bottom: 0.3rem;
-             font-weight: bold; /* Ensure headings are bold */
-             color: var(--text-dark);
-         }
-
-        .name-tag {
-            background-color: var(--primary-green);
-            color: var(--text-light);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            display: inline-block; /* Fit content */
-            font-size: 1.1rem;
-            font-weight: bold; /* Ensure tag text is bold */
-            width: fit-content; /* Size to content */
-            max-width: 100%; /* Prevent overflow */
-        }
-
-         .care-tips-list {
-            list-style: none; /* Remove default bullets */
-            padding-left: 0; /* Remove default padding */
-         }
-
-         .care-tips-list li {
-            display: flex;
-            align-items: flex-start; /* Align icon with first line of text */
-            gap: 0.75rem; /* Space between icon and text */
-            margin-bottom: 0.75rem; /* Space between list items */
-         }
-
-         .care-tips-list li i {
-            color: var(--primary-green); /* Green checkmarks */
-            font-size: 1.1rem; /* Checkmark size */
-            margin-top: 0.2em; /* Align icon slightly better vertically */
-            flex-shrink: 0; /* Prevent icon from shrinking */
-         }
-          .care-tips-list li span {
-             flex-grow: 1; /* Allow text to take remaining space */
-          }
-
-         .identify-another-button { /* Original styling for the button */
-             background-color: var(--primary-green);
-             color: var(--text-light);
-             padding: 0.8rem 1.5rem;
-             border: none;
-             border-radius: 25px;
-             font-family: var(--font-main);
-             font-size: 1.1rem;
-             cursor: pointer;
-             transition: background-color 0.2s ease;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-             gap: 0.75rem;
-             font-weight: bold; /* Match image boldness */
-             width: fit-content; /* Size to content */
-             margin: 1rem auto 0; /* Center button and add top margin */
-         }
-
-         .identify-another-button i {
-            font-size: 1.2em;
-         }
-
-         .identify-another-button:hover {
-            background-color: #5a8a1c; /* Darker green on hover */
-         }
-
-        /* *** RULE TO SHIFT THE BUTTON UP *** */
-        #identify-another-button { /* Target the specific button by its ID */
-             position: relative;  /* Allows us to shift it */
-             top: -15px;          /* Moves it UP 15 pixels from its normal spot */
-         }
-        /* ************************************** */
-
+        .results-title { display: flex; align-items: center; gap: 0.75rem; font-size: 1.3rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-dark); }
+        .results-title i { font-size: 1.8rem; color: var(--primary-green); }
+        .info-card { background-color: #f8f4e3; border: 1px solid var(--border-color-dark); border-radius: 10px; margin-bottom: 1.5rem; overflow: hidden; }
+        .info-card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border-color-dark); background-color: #f0e9c9; font-weight: bold; font-size: 1.1rem; color: var(--text-dark); }
+        .info-card-header i { font-size: 1.5rem; color: var(--primary-green); }
+        .info-card-body { padding: 1rem; font-size: 0.95rem; line-height: 1.6; word-wrap: break-word; }
+        #plant-description, #plant-habitat { white-space: pre-wrap; }
+        .plant-identity-card .info-card-body { display: flex; flex-direction: column; gap: 1rem; }
+        .plant-identity-card h3 { font-size: 1rem; margin-bottom: 0.3rem; font-weight: bold; color: var(--text-dark); }
+        .name-tag { background-color: var(--primary-green); color: var(--text-light); padding: 0.5rem 1rem; border-radius: 20px; display: inline-block; font-size: 1.1rem; font-weight: bold; width: fit-content; max-width: 100%; }
+        .care-tips-list { list-style: none; padding-left: 0; }
+        .care-tips-list li { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem; }
+        .care-tips-list li i { color: var(--primary-green); font-size: 1.1rem; margin-top: 0.2em; flex-shrink: 0; }
+        .care-tips-list li span { flex-grow: 1; }
+        .identify-another-button { background-color: var(--primary-green); color: var(--text-light); padding: 0.8rem 1.5rem; border: none; border-radius: 25px; font-family: var(--font-main); font-size: 1.1rem; cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-weight: bold; width: fit-content; margin: 1rem auto 0; }
+        .identify-another-button i { font-size: 1.2em; }
+        .identify-another-button:hover { background-color: #5a8a1c; }
+        /* Position adjustment from Code A (slightly different from B's original) */
+        #identify-another-button { position: relative; top: -15px; } /* Adjusted based on A's structure */
 
         /* Hidden file input */
-        #file-input {
-            display: none;
-        }
+        #file-input { display: none; }
 
         /* --- Loading Overlay Styles --- */
-        #loading-overlay {
-            position: fixed; /* Cover entire viewport */
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--background-beige); /* Match app background */
-            display: none; /* Hidden by default */
-            justify-content: center;
-            align-items: center;
-            z-index: 9999; /* Ensure it's on top of everything */
-            flex-direction: column;
-            gap: 2rem;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-
-        #loading-overlay.active {
-            display: flex; /* Show when active */
-            opacity: 1;
-        }
-
-        .loader-animation {
-            position: relative;
-            width: 150px; /* Adjust size as needed */
-            height: 150px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .plant-icon {
-            font-size: 6rem; /* Size of the plant icon */
-            color: var(--primary-green);
-        }
-
-        .magnifying-glass-icon {
-            position: absolute;
-            font-size: 4.5rem; /* Size of the magnifying glass */
-            color: var(--text-dark);
-            opacity: 0.85;
-            /* Animation applied dynamically via JS for better control */
-        }
-
-        .loader-text {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--text-dark);
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--background-beige); display: none; justify-content: center; align-items: center; z-index: 9999; flex-direction: column; gap: 2rem; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        #loading-overlay.active { display: flex; opacity: 1; }
+        .loader-animation { position: relative; width: 150px; height: 150px; display: flex; justify-content: center; align-items: center; }
+        .plant-icon { font-size: 6rem; color: var(--primary-green); }
+        .magnifying-glass-icon { position: absolute; font-size: 4.5rem; color: var(--text-dark); opacity: 0.85; }
+        .loader-text { font-size: 1.5rem; font-weight: bold; color: var(--text-dark); letter-spacing: 1.5px; text-transform: uppercase; }
 
         /* --- Keyframe Animations --- */
-        @keyframes scan { /* Renamed for clarity */
-            0% {
-                transform: translate(-40px, -40px) rotate(-45deg) scale(1);
-                opacity: 0.85;
-            }
-            20% {
-                 transform: translate(40px, 30px) rotate(15deg) scale(1.1);
-            }
-            40% {
-                 transform: translate(-30px, 40px) rotate(-35deg) scale(0.9);
-            }
-             60% {
-                 transform: translate(20px, -35px) rotate(25deg) scale(1.1);
-             }
-             80% {
-                 transform: translate(-15px, 15px) rotate(-10deg) scale(0.95);
-             }
-            100% {
-                 transform: translate(0px, 0px) rotate(0deg) scale(1);
-                 opacity: 0.85; /* Keep visible */
-            }
-        }
+        @keyframes scan { 0% { transform: translate(-40px, -40px) rotate(-45deg) scale(1); opacity: 0.85; } 20% { transform: translate(40px, 30px) rotate(15deg) scale(1.1); } 40% { transform: translate(-30px, 40px) rotate(-35deg) scale(0.9); } 60% { transform: translate(20px, -35px) rotate(25deg) scale(1.1); } 80% { transform: translate(-15px, 15px) rotate(-10deg) scale(0.95); } 100% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 0.85; } }
 
-        /* SweetAlert2 Theming */
-        .swal2-popup {
-            font-family: var(--font-main) !important; /* Ensure font matches */
-            background-color: var(--background-beige) !important;
-            color: var(--text-dark) !important;
-            border: 1px solid var(--border-color-dark) !important;
-            border-radius: 10px !important;
-        }
-        .swal2-title {
-             color: var(--text-dark) !important;
-             font-weight: bold;
-        }
-        .swal2-confirm { /* Style the confirm button */
-             background-color: var(--primary-green) !important;
-             border-radius: 25px !important; /* Match app button style */
-             padding: 0.6rem 1.5rem !important;
-             font-weight: bold !important;
-        }
-        .swal2-confirm:focus {
-             box-shadow: 0 0 0 3px rgba(106, 154, 44, 0.5) !important; /* Focus ring style */
-        }
-         /* Style error icon color */
-         .swal2-icon.swal2-error {
-            border-color: var(--accent-red) !important;
-            color: var(--accent-red) !important;
-         }
-         .swal2-icon.swal2-error [class^=swal2-x-mark-line] {
-            background-color: var(--accent-red) !important;
-         }
+        /* --- Authentication Section Styling --- */
+        .auth-container { background-color: var(--auth-background-beige); width: 100%; max-width: 450px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); padding: 30px 0; }
+        .auth-main-content { padding: 0 40px; }
+        .auth-main-content h2 { text-align: center; color: #333; font-size: 2.5em; font-weight: normal; margin-bottom: 30px; }
+        .auth-form .form-group { margin-bottom: 20px; }
+        .auth-form label { display: block; font-weight: normal; color: #333; margin-bottom: 8px; font-size: 0.95em; }
+        .auth-input-group { position: relative; display: flex; align-items: center; }
+        .auth-input-group .icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #888; font-size: 1.1em; }
+        .auth-input-group input { width: 100%; padding: 12px 15px 12px 45px; border: 1px solid #ddd; border-radius: 8px; background-color: white; font-size: 1em; color: #333; transition: border-color 0.3s ease; font-family: 'Alata', sans-serif; }
+        .auth-input-group input:focus { outline: none; border-color: #7ba040; box-shadow: 0 0 0 2px rgba(123, 160, 64, 0.2); }
+        .auth-input-group input::placeholder { color: #aaa; font-family: 'Alata', sans-serif; }
+        .auth-input-group .toggle-password { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #888; cursor: pointer; font-size: 1.1em; }
+        .auth-submit-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 12px 20px; background-color: #7ba040; color: white; border: none; border-radius: 8px; font-size: 1.1em; font-weight: normal; cursor: pointer; transition: background-color 0.3s ease, opacity 0.3s ease; margin-top: 15px; margin-bottom: 25px; font-family: 'Alata', sans-serif; }
+        .auth-submit-button:disabled { background-color: #a8c57c; cursor: not-allowed; opacity: 0.7; }
+        .auth-submit-button i { margin-left: 10px; font-size: 1.1em; }
+        .auth-submit-button:not(:disabled):hover { background-color: #6a8d38; }
+        .auth-toggle-link-paragraph { text-align: center; font-size: 0.95em; color: #555; }
+        .auth-toggle-link-paragraph a { color: #0056b3; text-decoration: none; font-weight: normal; cursor: pointer; }
+        .auth-toggle-link-paragraph a:hover { text-decoration: underline; }
+
+
+        /* --- Account Information View Styles --- */
+        .account-header { background-color: var(--primary-green); color: var(--text-light); padding: 1.2rem 1rem; text-align: center; font-size: 1.5rem; font-weight: bold; flex-shrink: 0; position: relative; }
+        .account-body { background-color: var(--account-background-beige); flex-grow: 1; padding: 25px 20px 40px 20px; position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: var(--container-max-width); margin: 0 auto; }
+        #account-back-button { position: absolute; top: 50%; transform: translateY(-50%); left: 15px; background: none; border: none; cursor: pointer; padding: 5px; font-size: 1.8rem; color: var(--text-light); line-height: 1; }
+        #account-back-button:hover { opacity: 0.8; }
+        .account-profile-pic { width: var(--profile-pic-size); height: var(--profile-pic-size); border-radius: 50%; border: 4px solid var(--primary-green); background-color: #e0f0d8; display: flex; align-items: center; justify-content: center; margin-top: 30px; margin-bottom: 20px; overflow: hidden; }
+        .account-profile-pic img { width: 100%; height: 100%; object-fit: cover; }
+        .account-user-name { font-size: 1.6em; font-weight: bold; color: var(--text-dark); margin-bottom: 25px; text-align: center; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .account-divider { border: none; height: 1.5px; background-color: var(--border-color-dark); width: 100%; margin: 0; }
+        .account-info-section { width: 100%; max-width: 480px; margin-top: 0; margin-bottom: 35px; }
+        .account-info-section .first-divider { margin-bottom: 5px; }
+        .account-info-item { display: flex; align-items: center; padding: 18px 5px; font-size: 1.1em; color: var(--text-dark); gap: 15px; min-height: 55px; }
+        .account-info-item .label { font-weight: bold; min-width: 70px; text-align: left; flex-shrink: 0; }
+        .account-info-item .value { font-weight: normal; text-align: left; flex-grow: 1; display: flex; align-items: center; word-break: break-all; color: var(--text-dark); }
+        #account-sign-out-button { background-color: var(--accent-red); color: var(--text-light); border: none; padding: 12px 28px; border-radius: 25px; font-size: 1.15em; font-weight: bold; font-family: var(--font-main); cursor: pointer; display: inline-flex; align-items: center; gap: 10px; margin-top: 25px; transition: background-color 0.2s ease; }
+        #account-sign-out-button:hover { background-color: #e01f1f; }
+        #account-sign-out-button i { font-size: 1.1em; }
+
+
+        /* --- SweetAlert2 Theming (Sign Out Popup Adjusted) --- */
+        .swal2-popup { font-family: var(--font-main) !important; background-color: var(--background-beige) !important; color: var(--text-dark) !important; border: 1px solid var(--border-color-dark) !important; border-radius: 10px !important; }
+        .swal2-title { color: var(--text-dark) !important; font-weight: bold; }
+        /* Default button styles */
+        .swal2-confirm { background-color: var(--primary-green) !important; border-radius: 25px !important; padding: 0.6rem 1.5rem !important; font-weight: bold !important; }
+        .swal2-cancel { background-color: var(--accent-red) !important; border-radius: 25px !important; padding: 0.6rem 1.5rem !important; font-weight: bold !important; color: var(--text-light) !important; }
+        .swal2-confirm:focus { box-shadow: 0 0 0 3px rgba(106, 154, 44, 0.5) !important; }
+        .swal2-cancel:focus { box-shadow: 0 0 0 3px rgba(255, 49, 49, 0.5) !important; }
+        /* Specific classes for Sign Out popup buttons */
+        .swal2-confirm.swal2-styled.signout-confirm-button { background-color: var(--accent-red) !important; color: var(--text-light) !important; } /* Red Confirm */
+        .swal2-cancel.swal2-styled.signout-cancel-button { background-color: var(--primary-green) !important; color: var(--text-light) !important; } /* Green Cancel */
+        .swal2-confirm.swal2-styled.signout-confirm-button:focus { box-shadow: 0 0 0 3px rgba(255, 49, 49, 0.5) !important; }
+        .swal2-cancel.swal2-styled.signout-cancel-button:focus { box-shadow: 0 0 0 3px rgba(106, 154, 44, 0.5) !important; }
+        /* Icon styles */
+        .swal2-icon.swal2-error { border-color: var(--accent-red) !important; color: var(--accent-red) !important; }
+        .swal2-icon.swal2-error [class^=swal2-x-mark-line] { background-color: var(--accent-red) !important; }
+        .swal2-icon.swal2-success { border-color: var(--primary-green) !important; color: var(--primary-green) !important; }
+        .swal2-icon.swal2-success .swal2-success-line-tip, .swal2-icon.swal2-success .swal2-success-line-long { background-color: var(--primary-green) !important; }
+        .swal2-icon.swal2-success .swal2-success-ring { border-color: rgba(106, 154, 44, 0.3) !important; }
+        .swal2-icon.swal2-info { border-color: #5bc0de !important; color: #5bc0de !important; }
+        .swal2-icon.swal2-warning { border-color: #f8bb86 !important; color: #f8bb86 !important; }
 
 
         /* --- Responsive Adjustments --- */
@@ -456,130 +307,188 @@
             .loader-animation { width: 200px; height: 200px; }
             .plant-icon { font-size: 8rem; }
             .magnifying-glass-icon { font-size: 6rem; }
-            .info-text { font-size: 1.15rem; } /* Slightly larger on desktop */
+            .info-text { font-size: 1.15rem; }
+            .account-header { font-size: 1.8rem; padding: 1.5rem 1rem; }
+            .account-body { padding: 35px 25px 50px 25px; }
+            .account-user-name { font-size: 1.8em; }
+            .account-info-item { font-size: 1.2em; }
+        }
+
+        @media (max-width: 500px) {
+             body:has(#auth-view.active) .auth-container { margin: 0; border-radius: 0; box-shadow: none; min-height: 100vh; width: 100%; display: flex; justify-content: center; align-items: center; padding: 0; }
+             body:has(#auth-view.active) .auth-main-content { padding: 0 25px; width: 100%; max-width: 450px; }
         }
 
     </style>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-TMY67BQPJ2"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-TMY67BQPJ2');
-</script>
 </head>
-<body>
-    <!-- ** SECURITY WARNING ** Still applies until key is moved server-side -->
-    <div class="app-container">
-        <header>
-            Smart Plant Identifier
-        </header>
+<body> <!-- No initial class, JS manages 'logged-in' -->
+    <!-- ** SECURITY WARNING ** Still applies for Supabase keys, best practice is backend proxy -->
+    <!-- Profile Image URL -->
+    <span style="display:none;" id="profile-image-url">https://www.dropbox.com/scl/fi/sr7v3dx7gm4q4f0kjqn76/Untitled-design-1.png?rlkey=izt58t1m3sau95ulglrhscyqm&st=i19xsrqs&dl=1</span>
 
-        <main>
-            <!-- Page 1: Upload Interface -->
-            <section id="page-upload">
-                <div class="upload-instructions">
-                    Upload clear Photo of (Leaf, Flower, or whole Plant).
-                </div>
-
-                <div class="drop-zone" id="drop-zone">
-                    <input type="file" id="file-input" accept="image/*">
-                    <div id="image-preview-container">
-                        <img id="image-preview" src="#" alt="Image Preview"/>
-                    </div>
-                    <div class="drop-zone-icon">
-                        <i class="fas fa-arrow-up-from-bracket"></i>
-                    </div>
-                    <div class="drop-zone-text" id="drop-zone-main-text">Drag Image here</div>
-                    <button type="button" class="browse-button" id="browse-button">Browse IMG</button>
-                </div>
-
-                <button type="button" class="identify-button" id="identify-button">
-                     <i class="fas fa-seedling icon"></i> Identify
+    <!-- Plant Identifier Tool View -->
+    <div id="tool-view">
+        <div class="app-container">
+            <header>
+                Smart Plant Identifier
+                <!-- Profile Icon Button (shown when logged in) -->
+                <button id="profile-icon-button" class="header-action-button" aria-label="Account Information">
+                    <img id="header-profile-icon-img" src="#" alt="Profile">
                 </button>
-
-                <div class="info-text">
-                    <p>Florix is an advanced, AI-powered plant identifier designed for gardeners, nature enthusiasts, and professionals seeking instant, accurate plant recognition. Utilizing cutting-edge image recognition technology and a comprehensive botanical database, Florix transforms how you interact with nature by delivering detailed plant insights within seconds.</p>
-                    <br>
-                    <p>With a user-friendly interface and intuitive design, Florix simplifies plant identification and care. Whether you're exploring local flora or researching exotic species, our innovative platform offers expert-level guidance and in-depth information on plant characteristics, care tips, and ecological benefits.</p>
-                    <br>
-                    <p>Florix stands out with its high-accuracy recognition system, smart analysis, and eco-friendly approach—making it the go-to digital companion for plant lovers. By integrating powerful AI with botanical expertise, Florix not only identifies plants but also enriches your understanding of their roles in nature and sustainable living.</p>
-                    <br>
-                    <p>Experience the future of plant identification with Florix—where advanced technology meets nature. Discover, learn, and nurture the green world around you with the smartest plant identification tool on the market.</p>
-                </div>
-            </section>
-
-            <!-- Page 2: Results Interface -->
-            <section id="page-results">
-                 <h2 class="results-title">
-                      <i class="far fa-file-lines"></i> Your Plant Info
-                 </h2>
-
-                <!-- Plant Identity Card -->
-                <div class="info-card plant-identity-card">
-                    <div class="info-card-header">
-                        <i class="fas fa-spa"></i> Plant Identity
-                    </div>
-                    <div class="info-card-body">
-                        <div>
-                            <h3>Common Name:</h3>
-                            <span class="name-tag" id="plant-common-name">Loading...</span>
-                        </div>
-                        <div>
-                            <h3>Scientific Name:</h3>
-                            <span class="name-tag" id="plant-scientific-name">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Description Card -->
-                <div class="info-card">
-                    <div class="info-card-header">
-                         <i class="fas fa-magnifying-glass-chart"></i> Description
-                    </div>
-                    <div class="info-card-body" id="plant-description">
-                        Loading...
-                    </div>
-                </div>
-
-                <!-- Habitat & Origin Card -->
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <i class="fas fa-globe-americas"></i> Habitat & Origin
-                    </div>
-                    <div class="info-card-body" id="plant-habitat">
-                        Loading...
-                    </div>
-                </div>
-
-                <!-- Care & Tips Card -->
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <i class="fas fa-seedling"></i> Care & Tips
-                    </div>
-                    <div class="info-card-body">
-                        <ul class="care-tips-list" id="plant-care-tips">
-                           <li><i class="fas fa-spinner fa-spin"></i> Loading...</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Button is still here in the HTML order -->
-                <button type="button" class="identify-another-button" id="identify-another-button">
-                    <i class="fas fa-arrows-rotate"></i> Identify Another Plant
+                <!-- Sign Up Icon Button (shown when logged out) -->
+                <button id="signup-icon-button" class="header-action-button" aria-label="Sign Up / Sign In">
+                    <i class="fas fa-user-plus"></i>
                 </button>
-            </section>
-        </main>
-    </div> <!-- End .app-container -->
+            </header>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <div class="loader-animation">
-            <i class="fas fa-seedling plant-icon"></i>
-            <i class="fas fa-magnifying-glass magnifying-glass-icon" id="loader-magnifying-glass"></i>
+            <main>
+                <!-- Page 1: Upload Interface -->
+                <section id="page-upload">
+                    <div class="upload-instructions">
+                        Upload clear Photo of (Leaf, Flower, or whole Plant).
+                    </div>
+
+                    <div class="drop-zone" id="drop-zone">
+                        <input type="file" id="file-input" accept="image/*">
+                        <div id="image-preview-container">
+                            <img id="image-preview" src="#" alt="Image Preview"/>
+                        </div>
+                        <div class="drop-zone-icon">
+                            <i class="fas fa-arrow-up-from-bracket"></i>
+                        </div>
+                        <div class="drop-zone-text" id="drop-zone-main-text">Drag Image here</div>
+                        <button type="button" class="browse-button" id="browse-button">Browse IMG</button>
+                    </div>
+
+                    <button type="button" class="identify-button" id="identify-button">
+                         <i class="fas fa-seedling icon"></i> Identify
+                    </button>
+
+                    <div class="info-text">
+                        <p>Florix is an advanced, AI-powered plant identifier designed for gardeners, nature enthusiasts, and professionals seeking instant, accurate plant recognition. Utilizing cutting-edge image recognition technology and a comprehensive botanical database, Florix transforms how you interact with nature by delivering detailed plant insights within seconds.</p>
+                        <br>
+                        <p>With a user-friendly interface and intuitive design, Florix simplifies plant identification and care. Whether you're exploring local flora or researching exotic species, our innovative platform offers expert-level guidance and in-depth information on plant characteristics, care tips, and ecological benefits.</p>
+                        <br>
+                        <p>Florix stands out with its high-accuracy recognition system, smart analysis, and eco-friendly approach—making it the go-to digital companion for plant lovers. By integrating powerful AI with botanical expertise, Florix not only identifies plants but also enriches your understanding of their roles in nature and sustainable living.</p>
+                        <br>
+                        <p>Experience the future of plant identification with Florix—where advanced technology meets nature. Discover, learn, and nurture the green world around you with the smartest plant identification tool on the market.</p>
+                    </div>
+                </section>
+
+                <!-- Page 2: Results Interface -->
+                <section id="page-results">
+                     <h2 class="results-title">
+                          <i class="far fa-file-lines"></i> Your Plant Info
+                     </h2>
+                    <!-- Plant Identity Card -->
+                    <div class="info-card plant-identity-card">
+                        <div class="info-card-header"> <i class="fas fa-spa"></i> Plant Identity </div>
+                        <div class="info-card-body">
+                            <div> <h3>Common Name:</h3> <span class="name-tag" id="plant-common-name">Loading...</span> </div>
+                            <div> <h3>Scientific Name:</h3> <span class="name-tag" id="plant-scientific-name">Loading...</span> </div>
+                        </div>
+                    </div>
+                    <!-- Description Card -->
+                    <div class="info-card">
+                        <div class="info-card-header"> <i class="fas fa-magnifying-glass-chart"></i> Description </div>
+                        <div class="info-card-body" id="plant-description"> Loading... </div>
+                    </div>
+                    <!-- Habitat & Origin Card -->
+                    <div class="info-card">
+                        <div class="info-card-header"> <i class="fas fa-globe-americas"></i> Habitat & Origin </div>
+                        <div class="info-card-body" id="plant-habitat"> Loading... </div>
+                    </div>
+                    <!-- Care & Tips Card -->
+                    <div class="info-card">
+                        <div class="info-card-header"> <i class="fas fa-seedling"></i> Care & Tips </div>
+                        <div class="info-card-body"> <ul class="care-tips-list" id="plant-care-tips"> <li><i class="fas fa-spinner fa-spin"></i> Loading...</li> </ul> </div>
+                    </div>
+                    <!-- Button -->
+                    <button type="button" class="identify-another-button" id="identify-another-button">
+                        <i class="fas fa-arrows-rotate"></i> Identify Another Plant
+                    </button>
+                </section>
+            </main>
+        </div> <!-- End .app-container -->
+    </div> <!-- End #tool-view -->
+
+
+    <!-- Authentication View -->
+    <div id="auth-view">
+        <div class="auth-container">
+            <main class="auth-main-content">
+                <h2 id="auth-form-title">Sign Up</h2>
+                <form action="#" method="post" class="auth-form" id="auth-form">
+                    <div class="form-group">
+                        <label for="auth-email">Email</label>
+                        <div class="auth-input-group"> <i class="fas fa-envelope icon"></i> <input type="email" id="auth-email" name="email" placeholder="Email Address" required> </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="auth-password">Password</label>
+                        <div class="auth-input-group"> <i class="fas fa-lock icon"></i> <input type="password" id="auth-password" name="password" placeholder="Password" required> <i class="fas fa-eye-slash toggle-password" id="auth-togglePassword"></i> </div>
+                    </div>
+                    <button type="submit" class="auth-submit-button" id="auth-submit-button"> <span id="auth-button-text">Sign Up</span> <i class="fas fa-user-plus" id="auth-button-icon"></i> </button>
+                </form>
+                <p class="auth-toggle-link-paragraph" id="auth-toggle-link-paragraph"> Already have an account? / <a id="auth-toggle-link">sign in</a> </p>
+            </main>
         </div>
+    </div> <!-- End #auth-view -->
+
+    <!-- Account Information View -->
+    <div id="account-view">
+         <div class="account-header">
+             <!-- Back Button -->
+             <button id="account-back-button" aria-label="Go back">
+                 <i class="fas fa-arrow-left"></i>
+             </button>
+            Account Information
+        </div>
+        <div class="account-body">
+             <!-- Profile Picture -->
+             <div class="account-profile-pic">
+                  <img id="account-profile-img" src="#" alt="Profile Picture">
+             </div>
+
+             <!-- User Name -->
+             <h2 class="account-user-name" id="account-user-name-display">Email Name</h2>
+
+             <!-- Information Section -->
+            <div class="account-info-section">
+                <hr class="account-divider first-divider">
+                <div class="account-info-item">
+                    <span class="label">Email:</span>
+                    <span class="value" id="account-email-display">loading...</span>
+                </div>
+                <hr class="account-divider">
+                <div class="account-info-item">
+                    <span class="label">Plan:</span>
+                    <span class="value" id="account-plan-display">Basic</span> <!-- Static 'Basic' -->
+                </div>
+                <hr class="account-divider">
+                 <div class="account-info-item">
+                    <span class="label">Daily IDs:</span>
+                    <span class="value" id="account-daily-ids-display">0 / 10</span> <!-- Placeholder for daily usage -->
+                </div>
+                <hr class="account-divider">
+                <div class="account-info-item">
+                    <span class="label">Joined:</span>
+                    <span class="value" id="account-joined-display">loading...</span>
+                </div>
+                <hr class="account-divider">
+            </div>
+
+             <!-- Sign Out Button -->
+            <button id="account-sign-out-button">
+                Sign Out
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </div> <!-- End #account-view -->
+
+
+    <!-- Loading Overlay (Common to Tool View) -->
+    <div id="loading-overlay">
+        <div class="loader-animation"> <i class="fas fa-seedling plant-icon"></i> <i class="fas fa-magnifying-glass magnifying-glass-icon" id="loader-magnifying-glass"></i> </div>
         <div class="loader-text">IDENTIFYING...</div>
     </div>
 
@@ -591,11 +500,30 @@
         'use strict';
 
         // --- Constants ---
-        // *** API KEY AND URL CONSTANTS ARE REMOVED ***
+        // *** NO GEMINI API KEY/URL HERE ***
         const MAX_FILE_SIZE_MB = 4;
+        const ANONYMOUS_IDENTIFICATION_LIMIT = 2; // Max free identifications for non-logged-in users
+        const DAILY_IDENTIFICATION_LIMIT = 10; // Max identifications per day for logged-in users
+        const USAGE_COUNT_KEY = 'florixUsageCount'; // localStorage key for anonymous users
+        const SUPABASE_URL = 'https://vttoxzppfqsucitynide.supabase.co'; // Replace with your actual Supabase URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0dG94enBwZnFzdWNpdHluaWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3ODIzNDMsImV4cCI6MjA1OTM1ODM0M30.mmnOwgghP35G7jSuwBZkTJRXZiCqe0zHsQaQxQKOTpk'; // Replace with your actual Supabase Anon Key
+        const PROFILE_IMAGE_URL = document.getElementById('profile-image-url')?.textContent || '#'; // Get URL from hidden span
+
+
+        // --- Global State ---
+        let currentFile = null;
+        let anonymousIdentificationCount = 0; // Tracks usage for non-logged-in users via localStorage
+        let isLoggedIn = false; // Tracks user login status
+        let _supabase = null; // Supabase client instance
+        let currentUser = null; // Store user data when logged in
 
         // --- DOM Element Selection ---
-        // (Remains the same)
+        // Views
+        const toolView = document.getElementById('tool-view');
+        const authView = document.getElementById('auth-view');
+        const accountView = document.getElementById('account-view');
+
+        // Tool Elements
         const pageUpload = document.getElementById('page-upload');
         const pageResults = document.getElementById('page-results');
         const identifyButton = document.getElementById('identify-button');
@@ -613,74 +541,230 @@
         const plantDescriptionEl = document.getElementById('plant-description');
         const plantHabitatEl = document.getElementById('plant-habitat');
         const plantCareTipsListEl = document.getElementById('plant-care-tips');
+        const profileIconButton = document.getElementById('profile-icon-button');
+        const signupIconButton = document.getElementById('signup-icon-button');
+        const headerProfileIconImg = document.getElementById('header-profile-icon-img');
 
-        let currentFile = null;
 
-        // --- Helper Functions ---
-        // (showPage, showLoader, hideLoader, resetUploadUI remain the same)
-        function showPage(pageId) {
+        // Auth Elements
+        const authFormTitle = document.getElementById('auth-form-title');
+        const authForm = document.getElementById('auth-form');
+        const authEmailInput = document.getElementById('auth-email');
+        const authPasswordInput = document.getElementById('auth-password');
+        const authTogglePassword = document.getElementById('auth-togglePassword');
+        const authSubmitButton = document.getElementById('auth-submit-button');
+        const authButtonText = document.getElementById('auth-button-text');
+        const authButtonIcon = document.getElementById('auth-button-icon');
+        const authToggleLinkParagraph = document.getElementById('auth-toggle-link-paragraph');
+        let isSignUpMode = true; // Auth state: true = Sign Up, false = Sign In
+
+        // Account Elements
+        const accountBackButton = document.getElementById('account-back-button');
+        const accountProfileImg = document.getElementById('account-profile-img');
+        const accountUserNameDisplay = document.getElementById('account-user-name-display');
+        const accountEmailDisplay = document.getElementById('account-email-display');
+        const accountJoinedDisplay = document.getElementById('account-joined-display');
+        const accountDailyIdsDisplay = document.getElementById('account-daily-ids-display');
+        const accountSignOutButton = document.getElementById('account-sign-out-button');
+
+
+        // --- Supabase Initialization ---
+        function initializeSupabase() {
+            try {
+                 // Check if the Supabase library is loaded
+                 if (typeof supabase === 'undefined' || !supabase?.createClient) {
+                     throw new Error("Supabase client library not loaded correctly.");
+                 }
+                 _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                 console.log('Supabase Client Initialized');
+
+                 // Check initial session state
+                 _supabase.auth.getSession().then(({ data: { session } }) => {
+                     handleAuthStateChange(session);
+                 }).catch(error => {
+                     console.error("Error getting initial session:", error);
+                     handleAuthStateChange(null); // Assume logged out on error
+                 });
+
+                 // Listen for auth state changes
+                  _supabase.auth.onAuthStateChange((_event, session) => {
+                     console.log("Auth state changed:", _event, session);
+                     handleAuthStateChange(session);
+                 });
+
+            } catch (error) {
+                console.error("Failed to initialize Supabase:", error);
+                displayError("Could not connect to the authentication service. Please try again later.", "Initialization Error");
+                handleAuthStateChange(null); // Ensure UI reflects logged-out state
+            }
+        }
+
+        // --- Auth State Change Handler ---
+        function handleAuthStateChange(session) {
+             if (session && session.user) {
+                 console.log('User is logged in:', session.user.email);
+                 isLoggedIn = true;
+                 currentUser = session.user;
+                 document.body.classList.add('logged-in');
+                 headerProfileIconImg.src = PROFILE_IMAGE_URL; // Set profile pic in header
+                 anonymousIdentificationCount = 0; // Reset anonymous count
+                 localStorage.removeItem(USAGE_COUNT_KEY); // Clear stored anonymous count
+
+                 // If account view is active when state changes (e.g., token refresh), repopulate
+                 if (accountView.classList.contains('active')) {
+                     populateAccountInfo();
+                 }
+                 // If auth view is active, redirect to tool view
+                 if (authView.classList.contains('active')) {
+                     showView('tool');
+                     showPage('upload');
+                 }
+
+             } else {
+                 console.log('User is logged out.');
+                 isLoggedIn = false;
+                 currentUser = null;
+                 document.body.classList.remove('logged-in');
+                 headerProfileIconImg.src = '#'; // Clear profile pic
+
+                 // If account view is active, redirect to tool view (or auth)
+                 if (accountView.classList.contains('active')) {
+                     showView('tool'); // Redirect from account page if logged out
+                     showPage('upload');
+                 }
+                 loadAnonymousUsageCount(); // Load anonymous usage count from storage
+             }
+        }
+
+
+        // --- View Management ---
+        function showView(viewId) {
+             toolView.classList.remove('active');
+             authView.classList.remove('active');
+             accountView.classList.remove('active');
+             document.body.style.backgroundColor = ''; // Reset body background
+
+             let targetView;
+             let newState = { view: viewId };
+             let hash = '';
+
+             switch (viewId) {
+                 case 'tool':
+                     targetView = toolView;
+                     document.body.style.backgroundColor = 'var(--background-beige)';
+                     document.title = 'Smart Plant Identifier';
+                     // Determine current tool page for state, default to upload if none active
+                     newState.page = pageResults.classList.contains('active') ? 'results' : 'upload';
+                     hash = newState.page === 'results' ? '#results' : '';
+                     console.log('Switching to Tool View');
+                     break;
+                 case 'auth':
+                     targetView = authView;
+                     document.body.style.backgroundColor = 'var(--auth-background-beige)';
+                     document.title = isSignUpMode ? 'Sign Up - Florix' : 'Sign In - Florix';
+                     updateAuthFormMode(); // Ensure form matches mode
+                     hash = '#auth';
+                     console.log('Switching to Auth View');
+                     break;
+                 case 'account':
+                     if (!isLoggedIn) {
+                         console.warn("Attempted to show account view while logged out. Redirecting to auth.");
+                         showView('auth'); // Redirect to auth if not logged in
+                         return;
+                     }
+                     targetView = accountView;
+                     document.body.style.backgroundColor = 'var(--account-background-beige)';
+                     document.title = 'Account Information - Florix';
+                     populateAccountInfo(); // Load user data before showing
+                     hash = '#account';
+                     console.log('Switching to Account View');
+                     break;
+                 default:
+                     console.error(`Unknown view ID: ${viewId}`);
+                     return;
+             }
+
+             if (targetView) {
+                 targetView.classList.add('active');
+                 // Update history state only if it's different from current state/hash
+                 if (window.location.hash !== hash || JSON.stringify(history.state) !== JSON.stringify(newState)) {
+                    history.pushState(newState, '', hash || window.location.pathname);
+                 }
+                 window.scrollTo(0, 0); // Scroll to top on view change
+             }
+        }
+
+
+        // --- Helper Functions (Tool) ---
+         function showPage(pageId) {
+            // Only proceed if the tool view itself is active
+            if (!toolView.classList.contains('active')) return;
+
             pageUpload.classList.remove('active');
             pageResults.classList.remove('active');
-            loadingOverlay.classList.remove('active');
+            loadingOverlay.classList.remove('active'); // Ensure loader is hidden when switching pages
 
+            let hash = '';
             if (pageId === 'upload') {
                 pageUpload.classList.add('active');
-                 resetUploadUI();
+                resetUploadUI();
+                 hash = ''; // Base path for upload page
             } else if (pageId === 'results') {
                 pageResults.classList.add('active');
+                 hash = '#results';
             }
-            window.scrollTo(0, 0);
-            console.log(`Navigated visually to: ${pageId}`);
+
+            // Update history state for the specific page within the tool view
+            const currentState = history.state || {};
+            if (currentState.view !== 'tool' || currentState.page !== pageId) {
+                history.replaceState({ view: 'tool', page: pageId }, '', hash || window.location.pathname);
+            }
+             window.scrollTo(0, 0); // Scroll to top on page change within tool view
+             console.log(`Navigated visually to tool page: ${pageId}`);
         }
 
         function showLoader() {
             loadingOverlay.classList.add('active');
+            // Ensure animation restarts correctly
             loaderMagnifyingGlass.style.animation = 'none';
-            loaderMagnifyingGlass.offsetHeight;
+            loaderMagnifyingGlass.offsetHeight; /* Trigger reflow */
             loaderMagnifyingGlass.style.animation = `scan ${getComputedStyle(document.documentElement).getPropertyValue('--loader-duration') || '7s'} ease-in-out infinite forwards`;
             console.log('Loader shown');
         }
-
         function hideLoader() {
             loadingOverlay.classList.remove('active');
-            loaderMagnifyingGlass.style.animation = 'none';
+            loaderMagnifyingGlass.style.animation = 'none'; // Stop animation
             console.log('Loader hidden');
         }
-
-         function resetUploadUI() {
-            fileInput.value = '';
+        function resetUploadUI() {
+            fileInput.value = ''; // Clear file input
             currentFile = null;
-            imagePreview.src = '#';
-            imagePreviewContainer.style.display = 'none';
-            dropZoneText.textContent = 'Drag Image here';
-            identifyButton.classList.remove('enabled');
+            imagePreview.src = '#'; // Reset preview image
+            imagePreviewContainer.style.display = 'none'; // Hide preview container
+            dropZoneText.textContent = 'Drag Image here'; // Reset drop zone text
+            identifyButton.classList.remove('enabled'); // Disable identify button
             console.log('Upload UI reset');
         }
-
-        // displayError function using SweetAlert2 (Remains the same)
-        function displayError(message) {
-             console.error("Error displayed to user:", message);
-             hideLoader();
-
+        function displayError(message, title = 'Identification Issue') { // Added optional title
+             console.error("Error displayed to user:", title, message);
+             hideLoader(); // Ensure loader is hidden on error
              Swal.fire({
                  icon: 'error',
-                 title: 'Identification Issue',
+                 title: title,
                  text: message,
                  confirmButtonText: 'OK',
-                 confirmButtonColor: 'var(--primary-green)',
                  customClass: {
                      popup: 'swal2-popup',
-                     confirmButton: 'swal2-confirm',
-                     title: 'swal2-title'
+                     confirmButton: 'swal2-confirm', // Use default green confirm for general errors
+                     title: 'swal2-title',
+                     icon: 'swal2-icon swal2-error'
                  }
              });
-
-             if (!pageUpload.classList.contains('active')) {
+             // If error occurs on results page, switch back to upload
+             if (!pageUpload.classList.contains('active') && toolView.classList.contains('active')) {
                  showPage('upload');
              }
         }
-
-        // Convert file to Base64 (Remains the same)
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
@@ -689,21 +773,30 @@
                 }
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    const base64String = reader.result.split(',')[1];
-                    resolve({ base64String, mimeType: file.type });
+                    // Ensure result is a string and split correctly
+                    if (typeof reader.result === 'string') {
+                        const base64String = reader.result.split(',')[1];
+                        if (base64String) {
+                            resolve({ base64String, mimeType: file.type });
+                        } else {
+                            reject('Could not extract Base64 data from file.');
+                        }
+                    } else {
+                        reject('FileReader did not return a string result.');
+                    }
                 };
                 reader.onerror = (error) => {
-                     console.error("FileReader error:", error);
-                     reject('Could not read the selected file.');
+                    console.error("FileReader error:", error);
+                    reject('Could not read the selected file.');
                 };
                 reader.readAsDataURL(file);
             });
         }
 
-        // *** REPLACED callGeminiAPI with callIdentificationFunction ***
+        // *** USE Netlify Function Call from Code B ***
         async function callIdentificationFunction(base64Data) {
-            console.log('Calling our secure Netlify function...');
-            const functionUrl = '/.netlify/functions/identifyPlant'; // Path to our function
+            console.log('Calling secure Netlify function for identification...');
+            const functionUrl = '/.netlify/functions/identifyPlant'; // Relative path to the Netlify function
 
             const requestPayload = {
                 imageData: base64Data.base64String,
@@ -717,12 +810,13 @@
                     body: JSON.stringify(requestPayload)
                 });
 
-                const data = await response.json(); // Get JSON response from OUR function
+                const data = await response.json(); // Get JSON response from the Netlify function
 
-                // Check if OUR function reported an error
+                // Check if the function itself reported an error or response was not ok
                 if (!response.ok || data.error) {
                     console.error('Netlify function returned an error:', data);
-                    throw new Error(data.error || 'Identification failed. Please try again.');
+                    // Use the error message from the function if available, otherwise a generic one
+                    throw new Error(data.error || `Identification service failed (Status: ${response.status}). Please try again.`);
                 }
 
                 // Response from our function should be the structured data
@@ -730,55 +824,57 @@
 
                  // Check if function determined it's not a plant
                  if (data.isPlant === false) {
-                     console.log("Function confirmed: not a plant.");
+                     console.log("Function indicated the image is not a plant or unclear.");
                      throw new Error(data.error || "The image provided does not seem to be a plant.");
                  }
 
-                 // Check if it is a plant (explicitly or implicitly)
-                 if (data.isPlant === true || typeof data.isPlant === 'undefined') { // Allow if isPlant is missing but looks like plant data
-                    if (!data.commonName || !data.scientificName) { // Basic check
-                        console.warn("Received plant data from function might be incomplete:", data);
+                 // Check if it is a plant (explicitly or implicitly) and has basic details
+                 const hasPlantKeys = data.commonName || data.scientificName; // Basic check
+                 if (data.isPlant === true || (typeof data.isPlant === 'undefined' && hasPlantKeys)) {
+                    if (!data.commonName || !data.scientificName || !data.description || !data.habitatOrigin || !data.careTips) {
+                        console.warn('Netlify function response missing some expected plant details:', data);
                     }
-                    console.log("Function confirmed: Plant identified.");
-                    // Add isPlant=true if it was missing, for consistency
-                    if (typeof data.isPlant === 'undefined') data.isPlant = true;
+                    console.log("Plant identified by Netlify function (potentially with partial details).");
+                    // Ensure isPlant property exists for consistency downstream
+                    if (typeof data.isPlant === 'undefined') {
+                        data.isPlant = true;
+                    }
                     return data; // Return the structured plant data
                  } else {
-                    // If isPlant is explicitly something else weird
-                    console.error("Unexpected response structure from function:", data);
-                    throw new Error("Received an unexpected response from the identification service.");
+                    // If isPlant is explicitly false or structure is unexpected
+                    console.error("Unexpected data structure from Netlify function, not plant or non-plant format:", data);
+                    throw new Error("Received an uninterpretable response from the identification service.");
                  }
 
             } catch (error) {
-                console.error('Error calling Netlify function:', error);
+                console.error('Error calling Netlify function or processing its response:', error);
                  // Handle network errors specifically
-                if (error instanceof TypeError && error.message.includes('fetch')) { // More robust check
+                if (error instanceof TypeError && error.message.toLowerCase().includes('fetch')) {
                      throw new Error("Could not connect to the identification service. Check your network connection or try again later.");
                 }
-                // Re-throw other errors (like those thrown above)
-                throw error;
+                // Re-throw other errors (like those thrown above or JSON parsing errors)
+                throw error instanceof Error ? error : new Error('An unknown network or processing error occurred.');
             }
         }
-        // *** END OF REPLACEMENT ***
+        // *** END Netlify Function Call ***
 
-
-        // Populate results (Remains the same)
         function displayResults(plantData) {
              console.log('Displaying results:', plantData);
              plantCommonNameEl.textContent = plantData.commonName || 'N/A';
              plantScientificNameEl.textContent = plantData.scientificName || 'N/A';
              plantDescriptionEl.textContent = plantData.description || 'No description available.';
              plantHabitatEl.textContent = plantData.habitatOrigin || 'No habitat/origin information available.';
-             plantCareTipsListEl.innerHTML = '';
+             plantCareTipsListEl.innerHTML = ''; // Clear previous tips/loading state
              if (plantData.careTips && typeof plantData.careTips === 'string' && plantData.careTips.trim() !== '') {
-                 const tips = plantData.careTips.split('\n');
+                 const tips = plantData.careTips.split('\n'); // Split tips by newline
                  tips.forEach(tip => {
                      tip = tip.trim();
-                     if (tip) {
+                     if (tip) { // Ensure tip is not empty after trimming
+                         // Remove leading '- ' if present
                          const tipText = tip.startsWith('- ') ? tip.substring(2) : tip;
                          const li = document.createElement('li');
                          const icon = document.createElement('i');
-                         icon.className = 'fas fa-check';
+                         icon.className = 'fas fa-check'; // Use checkmark icon
                          const span = document.createElement('span');
                          span.textContent = tipText;
                          li.appendChild(icon);
@@ -786,13 +882,14 @@
                          plantCareTipsListEl.appendChild(li);
                      }
                  });
-             } else {
+             }
+             else {
+                 // Display message if no tips are available
                  plantCareTipsListEl.innerHTML = '<li><i class="fas fa-info-circle"></i> No care tips available.</li>';
              }
         }
-
-        // Reset results (Remains the same)
         function resetResultsData() {
+             // Reset result fields to loading state
              plantCommonNameEl.textContent = 'Loading...';
              plantScientificNameEl.textContent = 'Loading...';
              plantDescriptionEl.textContent = 'Loading...';
@@ -800,141 +897,787 @@
              plantCareTipsListEl.innerHTML = '<li><i class="fas fa-spinner fa-spin"></i> Loading...</li>';
          }
 
+        // --- Authentication Helper Functions ---
+        function updateAuthFormMode() {
+            if (isSignUpMode) {
+                authFormTitle.textContent = 'Sign Up';
+                authButtonText.textContent = 'Sign Up';
+                authButtonIcon.className = 'fas fa-user-plus';
+                authToggleLinkParagraph.innerHTML = 'Already have an account? / <a id="auth-toggle-link">sign in</a>';
+                document.title = 'Sign Up - Florix'; // Update page title
+            } else {
+                authFormTitle.textContent = 'Sign In';
+                authButtonText.textContent = 'Sign In';
+                authButtonIcon.className = 'fas fa-arrow-right-to-bracket';
+                authToggleLinkParagraph.innerHTML = "Don't have an account? / <a id=\"auth-toggle-link\">sign up</a>";
+                document.title = 'Sign In - Florix'; // Update page title
+            }
+            // Reset form fields and state
+            authEmailInput.value = '';
+            authPasswordInput.value = '';
+            authPasswordInput.setAttribute('type', 'password'); // Ensure password hidden
+            authTogglePassword.classList.remove('fa-eye');
+            authTogglePassword.classList.add('fa-eye-slash');
+            authSubmitButton.disabled = false; // Re-enable button
+        }
+        function showAuthSuccessPopup(title) {
+             // Display success message using SweetAlert
+             return Swal.fire({
+                 icon: 'success',
+                 title: title,
+                 text: 'You are now being redirected to the identifier.',
+                 showConfirmButton: true, // Show OK button
+                 confirmButtonText: 'OK',
+                 timer: 2500, // Auto close after 2.5 seconds
+                 timerProgressBar: true,
+                 customClass: {
+                     popup: 'swal2-popup',
+                     confirmButton: 'swal2-confirm', // Use default green confirm
+                     title: 'swal2-title',
+                     icon: 'swal2-icon swal2-success',
+                     timerProgressBar: 'swal2-timer-progress-bar'
+                 }
+             });
+        }
+        function showAuthErrorPopup(title, message) {
+             // Display error message using SweetAlert
+             return Swal.fire({
+                 icon: 'error',
+                 title: title,
+                 text: message,
+                 confirmButtonText: 'OK',
+                 customClass: {
+                     popup: 'swal2-popup',
+                     confirmButton: 'swal2-confirm', // Use default green confirm
+                     title: 'swal2-title',
+                     icon: 'swal2-icon swal2-error'
+                 }
+             });
+        }
+
+        // --- Account Information Helpers ---
+        async function populateAccountInfo() {
+             if (!isLoggedIn || !currentUser) {
+                 console.error("Cannot populate account info: User not logged in or data missing.");
+                 showView('auth'); // Redirect if called inappropriately
+                 return;
+             }
+             console.log("Populating account info for:", currentUser.email);
+
+             // Set profile picture
+             accountProfileImg.src = PROFILE_IMAGE_URL; // Use the constant URL
+
+             // Set email display
+             accountEmailDisplay.textContent = currentUser.email || 'N/A';
+
+             // Generate a display name from email prefix
+             let userName = "User";
+             if (currentUser.email) {
+                 const emailPrefix = currentUser.email.split('@')[0];
+                  const maxLength = 20; // Max length for display name
+                  userName = emailPrefix.length > maxLength ? emailPrefix.substring(0, maxLength) + '...' : emailPrefix;
+             }
+             accountUserNameDisplay.textContent = userName;
+
+             // Format and display join date
+             let joinedDate = 'N/A';
+             if (currentUser.created_at) {
+                 try {
+                     const date = new Date(currentUser.created_at);
+                     // Format as DD/MM/YYYY
+                     const day = String(date.getDate()).padStart(2, '0');
+                     const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                     const year = date.getFullYear();
+                     joinedDate = `${day}/${month}/${year}`;
+                 } catch (e) {
+                     console.error("Error formatting join date:", e);
+                     joinedDate = 'Invalid Date';
+                 }
+             }
+             accountJoinedDisplay.textContent = joinedDate;
+
+             // Fetch and display daily usage count
+             accountDailyIdsDisplay.textContent = `Loading... / ${DAILY_IDENTIFICATION_LIMIT}`; // Initial placeholder
+             try {
+                 const usageData = await getUserUsageData(); // Fetch latest data
+                 if (usageData) {
+                     // Check if reset is needed before displaying
+                     if (needsDailyReset(usageData.lastReset)) {
+                         console.log("Daily reset needed upon viewing account info.");
+                         const resetSuccess = await resetUserDailyCount();
+                         if (resetSuccess) {
+                             accountDailyIdsDisplay.textContent = `0 / ${DAILY_IDENTIFICATION_LIMIT}`;
+                         } else {
+                             // If reset failed, show potentially stale count but indicate issue
+                             accountDailyIdsDisplay.textContent = `${usageData.count}* / ${DAILY_IDENTIFICATION_LIMIT}`;
+                             console.warn("Failed to reset count, displaying potentially stale data.");
+                         }
+                     } else {
+                         accountDailyIdsDisplay.textContent = `${usageData.count} / ${DAILY_IDENTIFICATION_LIMIT}`;
+                     }
+                 } else {
+                     // Handle case where usage data couldn't be fetched (e.g., new profile)
+                     accountDailyIdsDisplay.textContent = `0 / ${DAILY_IDENTIFICATION_LIMIT}`; // Assume 0 if no data
+                 }
+             } catch (error) {
+                 console.error("Error fetching usage data for account view:", error);
+                 accountDailyIdsDisplay.textContent = `Error / ${DAILY_IDENTIFICATION_LIMIT}`;
+             }
+        }
+
+        // --- Usage Limit Check and Prompt (Anonymous Users) ---
+        function loadAnonymousUsageCount() {
+             // Only load if user is not logged in
+             if (!isLoggedIn) {
+                 try {
+                     const storedCount = localStorage.getItem(USAGE_COUNT_KEY);
+                     anonymousIdentificationCount = storedCount ? parseInt(storedCount, 10) || 0 : 0;
+                     console.log(`Anonymous usage count loaded: ${anonymousIdentificationCount}`);
+                 } catch (storageError) {
+                     console.warn("Could not read anonymous usage count from localStorage:", storageError);
+                     anonymousIdentificationCount = 0; // Default to 0 on error
+                 }
+             } else {
+                 anonymousIdentificationCount = 0; // Reset if somehow called while logged in
+             }
+        }
+
+        function checkAnonymousUsageLimitAndPrompt() {
+            // This function ONLY checks the limit for non-logged-in users
+            if (!isLoggedIn && anonymousIdentificationCount >= ANONYMOUS_IDENTIFICATION_LIMIT) {
+                console.log(`Anonymous usage limit (${ANONYMOUS_IDENTIFICATION_LIMIT}) reached.`);
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Free Limit Reached',
+                    text: `You've used your ${ANONYMOUS_IDENTIFICATION_LIMIT} free plant identifications. Please sign up or sign in to continue identifying plants!`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sign Up / Sign In',
+                    cancelButtonText: 'Maybe Later',
+                    customClass: {
+                        popup: 'swal2-popup',
+                        confirmButton: 'swal2-confirm', // Green confirm
+                        cancelButton: 'swal2-cancel',   // Red cancel
+                        title: 'swal2-title',
+                        icon: 'swal2-icon swal2-info'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        console.log('User chose to Sign Up / Sign In from prompt.');
+                        isSignUpMode = true; // Default to sign up
+                        showView('auth');
+                    } else {
+                        console.log('User chose Maybe Later from prompt.');
+                    }
+                });
+                return false; // Indicate limit reached
+            }
+            return true; // Indicate limit not reached
+        }
+
+        // --- SUPABASE INTEGRATION: Daily Usage Limit Functions ---
+        // Assumes a 'profiles' table linked to 'auth.users' via user_id (matching auth.users.id)
+        // with columns: 'id' (uuid, primary key, references auth.users.id),
+        // 'daily_identification_count' (int), and 'last_identification_reset' (timestamptz)
+
+        async function getUserUsageData() {
+            if (!isLoggedIn || !currentUser || !_supabase) {
+                console.warn("Cannot get usage data: User not logged in or Supabase unavailable.");
+                return null; // Return null to indicate data couldn't be fetched
+            }
+
+            try {
+                // Fetch from 'profiles' table where id matches the logged-in user's id
+                const { data, error, status } = await _supabase
+                    .from('profiles') // Ensure this matches your table name
+                    .select('daily_identification_count, last_identification_reset')
+                    .eq('id', currentUser.id) // Match the user's ID
+                    .single(); // Expect only one row or null
+
+                if (error && status !== 406) { // 406 means single() found 0 rows, which is expected for new users
+                    console.error("Supabase error fetching usage data:", error);
+                    throw new Error(`Failed to fetch usage data: ${error.message}`);
+                }
+
+                if (!data) {
+                     // Profile might not exist yet (new user)
+                     console.log("User profile or usage data not found, assuming 0 usage.");
+                     // Optionally, create the profile row here if it's guaranteed not to exist
+                     // await _supabase.from('profiles').insert({ id: currentUser.id, daily_identification_count: 0 });
+                     return { count: 0, lastReset: null };
+                }
+
+                console.log("Fetched usage data:", data);
+                return {
+                    count: data.daily_identification_count || 0,
+                    lastReset: data.last_identification_reset ? new Date(data.last_identification_reset) : null
+                };
+
+            } catch (err) {
+                console.error("Error in getUserUsageData:", err);
+                // Don't display a popup here, let the calling function handle UI errors
+                throw err; // Re-throw the error to be caught by the caller
+            }
+        }
+
+        async function updateUserUsageCount(newCount) {
+            if (!isLoggedIn || !currentUser || !_supabase) {
+                console.warn("Cannot update usage count: User not logged in or Supabase unavailable.");
+                return false; // Indicate failure
+            }
+
+            try {
+                const { error } = await _supabase
+                    .from('profiles') // Ensure this matches your table name
+                    .update({ daily_identification_count: newCount })
+                    .eq('id', currentUser.id); // Match the user
+
+                if (error) {
+                    console.error("Supabase error updating usage count:", error);
+                    throw new Error(`Failed to update usage count: ${error.message}`);
+                }
+
+                console.log(`Usage count updated to ${newCount} for user ${currentUser.id}`);
+                return true; // Indicate success
+
+            } catch (err) {
+                console.error("Error in updateUserUsageCount:", err);
+                // Display error specific to this failure
+                displayError("Failed to save your identification usage. Please try again.", "Usage Update Failed");
+                return false; // Indicate failure
+            }
+        }
+
+        async function resetUserDailyCount() {
+            if (!isLoggedIn || !currentUser || !_supabase) {
+                console.warn("Cannot reset usage count: User not logged in or Supabase unavailable.");
+                return false; // Indicate failure
+            }
+
+            try {
+                const now = new Date().toISOString(); // Get current time in UTC ISO format
+                const { error } = await _supabase
+                    .from('profiles') // Ensure this matches your table name
+                    .update({
+                        daily_identification_count: 0,
+                        last_identification_reset: now // Update reset timestamp
+                    })
+                    .eq('id', currentUser.id); // Match the user
+
+                if (error) {
+                    console.error("Supabase error resetting usage count:", error);
+                    throw new Error(`Failed to reset usage count: ${error.message}`);
+                }
+
+                console.log(`Daily usage count reset for user ${currentUser.id} at ${now}`);
+                return true; // Indicate success
+
+            } catch (err) {
+                console.error("Error in resetUserDailyCount:", err);
+                 displayError("Failed to reset your daily usage count. Please try again later.", "Usage Reset Failed");
+                return false; // Indicate failure
+            }
+        }
+
+        // Helper to check if reset is needed (based on UTC calendar day change)
+        function needsDailyReset(lastResetTimestamp) {
+            if (!lastResetTimestamp) return true; // If never reset, needs reset
+
+            const now = new Date();
+            const resetTime = new Date(lastResetTimestamp);
+
+            // Compare YYYY-MM-DD strings in UTC
+            const nowDay = now.toISOString().slice(0, 10);
+            const resetDay = resetTime.toISOString().slice(0, 10);
+
+            return nowDay !== resetDay; // Reset if the current UTC day is different from the last reset UTC day
+        }
 
         // --- Event Listeners ---
 
-        // Identify Button Click
+        // Identify Button Click (with Usage Limit Checks)
         identifyButton.addEventListener('click', async () => {
-            if (!currentFile) {
-                displayError('Please select an image file first.');
-                return;
+            if (!currentFile) { displayError('Please select an image file first.'); return; }
+            // No API key check needed here
+
+            let proceed = false;
+            let currentUsage = 0; // Track usage for potential update
+
+            if (isLoggedIn) {
+                // --- Logged-in User: Daily Limit Check ---
+                if (!_supabase) { displayError("Cannot check usage limit: Authentication service unavailable."); return; }
+                showLoader(); // Show loader early for DB checks
+
+                try {
+                    let usageData = await getUserUsageData();
+                    if (!usageData) {
+                        // Attempt to handle case where profile might be missing by assuming 0
+                        console.warn("Could not retrieve usage data, assuming 0 for limit check.");
+                        usageData = { count: 0, lastReset: null };
+                        // Optionally try to create profile here if needed
+                    }
+
+                    // Check if reset is needed
+                    if (needsDailyReset(usageData.lastReset)) {
+                        console.log("Daily reset needed.");
+                        const resetSuccess = await resetUserDailyCount();
+                        if (!resetSuccess) {
+                            // If reset fails, stop the process to avoid incorrect counting
+                            throw new Error("Failed to reset daily count. Please try again.");
+                        }
+                        usageData.count = 0; // Update local count after successful reset
+                    }
+
+                    currentUsage = usageData.count; // Store current count before potential increment
+
+                    // Check limit
+                    if (currentUsage >= DAILY_IDENTIFICATION_LIMIT) {
+                        console.log(`Daily limit (${DAILY_IDENTIFICATION_LIMIT}) reached for user ${currentUser.email}.`);
+                        hideLoader(); // Hide loader before showing alert
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Daily Limit Reached',
+                            text: `You have used your ${DAILY_IDENTIFICATION_LIMIT} identifications for today. Please try again tomorrow.`,
+                            confirmButtonText: 'OK',
+                            customClass: {
+                                popup: 'swal2-popup',
+                                confirmButton: 'swal2-confirm', // Green confirm
+                                title: 'swal2-title',
+                                icon: 'swal2-icon swal2-warning'
+                            }
+                        });
+                        return; // Stop processing
+                    }
+
+                    // If limit not reached, allow proceeding
+                    proceed = true;
+                    // Loader remains active for the identification call
+
+                } catch (error) {
+                    console.error('Error during daily limit check or reset:', error);
+                    hideLoader();
+                    displayError(error.message || 'An error occurred while checking your usage limit.');
+                    return; // Stop processing
+                }
+                // --- End Logged-in User Check ---
+
+            } else {
+                // --- Anonymous User: Basic Limit Check ---
+                if (!checkAnonymousUsageLimitAndPrompt()) {
+                    return; // Stop if anonymous limit reached and user didn't proceed
+                }
+                proceed = true;
+                // --- End Anonymous User Check ---
             }
-            // *** REMOVED API KEY CHECK - Key is no longer here! ***
-            // Configuration errors will be handled if the function fails.
 
-            console.log('Identification process triggered for file:', currentFile.name);
-            showLoader();
+            // --- Proceed with Identification if allowed ---
+            if (proceed) {
+                console.log('Identification process triggered for file:', currentFile.name);
+                if (!loadingOverlay.classList.contains('active')) showLoader(); // Ensure loader is shown
 
-            try {
-                const base64Data = await fileToBase64(currentFile);
-                console.log('File prepared successfully.');
+                let identificationSuccess = false;
+                try {
+                    const base64Data = await fileToBase64(currentFile);
+                    console.log('File prepared successfully.');
 
-                // *** UPDATED function call ***
-                const plantData = await callIdentificationFunction(base64Data);
+                    // --- IMPORTANT: Increment usage count *before* calling API for logged-in users ---
+                    if (isLoggedIn) {
+                        const updateSuccess = await updateUserUsageCount(currentUsage + 1);
+                        if (!updateSuccess) {
+                            // Error was already displayed by updateUserUsageCount
+                            // Stop the process if we couldn't record the usage increment
+                            hideLoader();
+                            return;
+                        }
+                        // Update the account view display in the background if it's open
+                        if (accountView.classList.contains('active')) {
+                             accountDailyIdsDisplay.textContent = `${currentUsage + 1} / ${DAILY_IDENTIFICATION_LIMIT}`;
+                        }
+                    }
 
-                // If successful...
-                resetResultsData();
-                displayResults(plantData);
+                    // *** CALL THE NETLIFY FUNCTION ***
+                    const plantData = await callIdentificationFunction(base64Data);
+                    identificationSuccess = true; // Mark as successful
 
-                const newState = { page: 'results' };
-                history.pushState(newState, '', '#results');
-                console.log('Pushed history state:', newState);
-                showPage('results');
+                    resetResultsData(); // Clear previous results
+                    displayResults(plantData); // Display new results
+                    showPage('results'); // Switch to results page
 
-            } catch (error) {
-                console.error('Identification process failed:', error);
-                displayError(error.message || 'An unknown error occurred during identification.');
-            } finally {
-                 if (loadingOverlay.classList.contains('active')) {
-                     hideLoader();
-                 }
+                    // --- Increment Anonymous Usage Count ONLY if not logged in AND successful ---
+                    if (!isLoggedIn && identificationSuccess) {
+                        anonymousIdentificationCount++;
+                        try {
+                            localStorage.setItem(USAGE_COUNT_KEY, anonymousIdentificationCount.toString());
+                            console.log(`Anonymous usage count incremented to: ${anonymousIdentificationCount}`);
+                        } catch (storageError) {
+                            console.warn("Could not save anonymous usage count to localStorage:", storageError);
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Identification process failed:', error);
+                    // If logged in and DB update succeeded but API failed, the count remains incremented.
+                    // This is simpler than rolling back, assumes API failure is less common than success.
+                    displayError(error instanceof Error ? error.message : 'An unknown error occurred during identification.');
+                    // Ensure we are back on the upload page if identification fails
+                    if (!pageUpload.classList.contains('active')) {
+                        showPage('upload');
+                    }
+                } finally {
+                     // Always hide loader after attempt, regardless of success/failure
+                     if (loadingOverlay.classList.contains('active')) {
+                         hideLoader();
+                     }
+                }
             }
         });
 
-
-        // Identify Another Button Click (Remains the same)
+        // Identify Another Button Click
         identifyAnotherButton.addEventListener('click', () => {
-            history.back();
-            console.log('Identify Another clicked - navigating back in history.');
+            // Go back to the upload page using history or showPage
+            // Using showPage is slightly more direct if history state isn't complex
+            showPage('upload');
+            console.log('Identify Another clicked - showing upload page.');
         });
 
-        // Handle Browser Back/Forward Buttons (popstate event) (Remains the same)
+        // Profile Icon Button Click
+        profileIconButton.addEventListener('click', () => {
+            console.log("Profile icon clicked");
+            showView('account'); // showView handles checks and history
+        });
+
+        // Sign Up Icon Button Click
+        signupIconButton.addEventListener('click', () => {
+            console.log("Sign Up icon clicked");
+            isSignUpMode = true; // Ensure auth view opens in Sign Up mode
+            showView('auth'); // showView handles history and form update
+        });
+
+        // Account Back Button Click
+        accountBackButton.addEventListener('click', () => {
+            console.log("Account back button clicked");
+            showView('tool'); // Go back to the main tool view
+            // Optionally default to upload page, or let history handle it
+            // showPage('upload'); // Uncomment to force upload page
+        });
+
+        // Account Sign Out Button Click
+        accountSignOutButton.addEventListener('click', async () => {
+             console.log("Sign out button clicked");
+             Swal.fire({
+                 title: 'Are you sure?',
+                 text: "You will be logged out.",
+                 icon: 'warning',
+                 showCancelButton: true,
+                 confirmButtonText: 'Confirm', // Text for Red button
+                 cancelButtonText: 'Cancel',   // Text for Green button
+                 customClass: {
+                     popup: 'swal2-popup',
+                     confirmButton: 'swal2-confirm swal2-styled signout-confirm-button', // Assign Red style
+                     cancelButton: 'swal2-cancel swal2-styled signout-cancel-button',     // Assign Green style
+                     title: 'swal2-title',
+                     icon: 'swal2-icon swal2-warning'
+                 },
+                 buttonsStyling: false // Use custom classes entirely
+             }).then(async (result) => {
+                 if (result.isConfirmed) { // User clicked the Red "Confirm" button
+                     console.log("User confirmed sign out.");
+                     if (!_supabase) {
+                         displayError("Authentication service error. Cannot sign out.", "Sign Out Failed");
+                         return;
+                     }
+                     try {
+                         const { error } = await _supabase.auth.signOut();
+                         if (error) {
+                             console.error('Error signing out:', error);
+                             displayError(`Failed to sign out: ${error.message}`, "Sign Out Failed");
+                         } else {
+                             console.log('Sign out successful via Supabase.');
+                             // Auth state change listener handles UI updates (removing .logged-in, etc.)
+                             // Show a confirmation popup
+                             Swal.fire({
+                                 icon: 'success',
+                                 title: 'Signed Out',
+                                 text: 'You have been successfully signed out.',
+                                 timer: 2000,
+                                 showConfirmButton: false,
+                                 customClass: {
+                                     popup: 'swal2-popup',
+                                     title: 'swal2-title',
+                                     icon: 'swal2-icon swal2-success'
+                                 }
+                             });
+                             // No need to manually call showView('tool') here,
+                             // the handleAuthStateChange listener will redirect from account view if needed.
+                         }
+                     } catch (err) {
+                         console.error('Unexpected error during sign out:', err);
+                         displayError('An unexpected error occurred during sign out.', "Sign Out Failed");
+                     }
+                 } else if (result.dismiss === Swal.DismissReason.cancel) { // User clicked the Green "Cancel" button
+                     console.log("User cancelled sign out.");
+                 }
+             });
+        });
+
+
+        // Handle Browser Back/Forward Buttons (popstate event)
         window.addEventListener('popstate', (event) => {
             console.log('Popstate event fired:', event.state);
-            const targetPage = (event.state && event.state.page === 'results') ? 'results' : 'upload';
-            showPage(targetPage);
+            const targetView = event.state?.view || 'tool'; // Default to tool view if state is missing
+            const targetPage = event.state?.page || 'upload'; // Default to upload page within tool
+
+             // Hide all views initially to prevent flicker during transition
+             toolView.classList.remove('active');
+             authView.classList.remove('active');
+             accountView.classList.remove('active');
+
+             // Use showView to handle displaying the correct view and its logic
+             // showView also handles the login check for the account view
+             showView(targetView);
+
+             // If navigating back to the tool view, ensure the correct page is shown
+             if (targetView === 'tool') {
+                 showPage(targetPage); // Restore specific tool page
+             }
         });
 
-        // --- File Input Handling --- (Remains the same)
-        browseButton.addEventListener('click', () => {
-            fileInput.click();
-        });
-
+        // --- File Input Handling (Tool) ---
+        browseButton.addEventListener('click', () => { fileInput.click(); });
         dropZone.addEventListener('click', (e) => {
+            // Trigger file input only if not clicking the browse button itself
             if (e.target !== browseButton && !browseButton.contains(e.target)) {
-                 fileInput.click();
+                fileInput.click();
             }
         });
-
-        fileInput.addEventListener('change', (e) => {
-             handleFiles(e.target.files);
-        });
+        fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); });
 
         function handleFiles(files) {
              if (files.length === 0) {
                  console.log('No file selected.');
-                 return;
+                 return; // Do nothing if no file is chosen
              }
              const file = files[0];
 
+             // Validate file type
              if (!file.type.startsWith('image/')) {
                  displayError('Invalid file type. Please upload an image (JPEG, PNG, GIF, WEBP).');
-                 resetUploadUI();
+                 resetUploadUI(); // Reset UI after error
                  return;
              }
+             // Validate file size
               if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
                  displayError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is ${MAX_FILE_SIZE_MB} MB.`);
-                 resetUploadUI();
+                 resetUploadUI(); // Reset UI after error
                  return;
              }
 
-             currentFile = file;
+             currentFile = file; // Store the valid file
              console.log('File selected:', file.name, file.type, file.size);
 
+             // Display image preview
              const reader = new FileReader();
              reader.onload = (e) => {
                  imagePreview.src = e.target.result;
-                 imagePreviewContainer.style.display = 'block';
-                 dropZoneText.textContent = `Selected: ${file.name}`;
+                 imagePreviewContainer.style.display = 'block'; // Show preview
+                 dropZoneText.textContent = `Selected: ${file.name}`; // Update drop zone text
+                 identifyButton.classList.add('enabled'); // Enable identify button
              }
               reader.onerror = () => {
                  displayError('Could not display preview for the selected file.');
-                 resetUploadUI();
+                 resetUploadUI(); // Reset UI on preview error
              };
-             reader.readAsDataURL(file);
-
-             identifyButton.classList.add('enabled');
+             reader.readAsDataURL(file); // Read the file for preview
         }
 
-        // --- Drag and Drop Handling --- (Remains the same)
+        // --- Drag and Drop Handling (Tool) ---
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        // Prevent default behavior for drag/drop events on dropzone and body
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false); // Prevent browser opening file
         });
-        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        // Add visual feedback for dragover
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
         });
+        // Remove visual feedback
         ['dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
         });
+        // Handle file drop
         dropZone.addEventListener('drop', (e) => {
              const dt = e.dataTransfer;
              const files = dt.files;
              if (files.length > 0) {
-                  handleFiles(files);
+                  handleFiles(files); // Process dropped files using the same handler
                   console.log('File dropped:', files[0].name);
              }
         }, false);
 
-        // --- Initialization --- (Remains the same)
+
+        // --- Authentication Event Listeners ---
+        // Toggle password visibility
+        authTogglePassword.addEventListener('click', function () {
+            const type = authPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            authPasswordInput.setAttribute('type', type);
+            // Toggle eye icon
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+        // Toggle between Sign Up and Sign In modes
+        authToggleLinkParagraph.addEventListener('click', function(event) {
+            // Ensure the click is on the link itself
+            if (event.target && event.target.id === 'auth-toggle-link') {
+                event.preventDefault(); // Prevent default link behavior
+                isSignUpMode = !isSignUpMode; // Toggle the mode flag
+                updateAuthFormMode(); // Update the form UI
+            }
+        });
+        // Handle Auth Form Submission (Sign Up / Sign In)
+        authForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent default form submission
+             if (!_supabase) {
+                 showAuthErrorPopup('Error', 'Authentication service is unavailable. Please try again later.');
+                 return;
+             }
+            const email = authEmailInput.value.trim();
+            const password = authPasswordInput.value.trim();
+            // Basic validation
+            if (!email || !password) {
+                showAuthErrorPopup('Oops...', 'Please enter both email and password.');
+                return;
+            }
+
+            // Disable button and show processing state
+            authSubmitButton.disabled = true;
+            const originalButtonText = authButtonText.textContent;
+            authButtonText.textContent = 'Processing...';
+            authButtonIcon.className = 'fas fa-spinner fa-spin'; // Show spinner
+
+            try {
+                let responseData;
+                let errorMessage;
+                let success = false;
+                let successTitle = '';
+                let authPromise;
+
+                // Call the appropriate Supabase auth method
+                if (isSignUpMode) {
+                    console.log('Attempting Supabase Sign Up...');
+                    authPromise = _supabase.auth.signUp({ email: email, password: password });
+                    successTitle = 'Sign Up Successful!';
+                } else {
+                    console.log('Attempting Supabase Sign In...');
+                    authPromise = _supabase.auth.signInWithPassword({ email: email, password: password });
+                    successTitle = 'Sign In Successful!';
+                }
+
+                // Await the Supabase response
+                const { data, error } = await authPromise;
+                responseData = data;
+                if (error) errorMessage = error.message;
+
+                // Check the outcome
+                if (!error && (responseData?.user || responseData?.session)) { // Success if user or session exists
+                    console.log(`${isSignUpMode ? 'Sign Up' : 'Sign In'} Success:`, responseData);
+                    success = true;
+                    // The onAuthStateChange listener will handle the UI update (setting isLoggedIn, etc.)
+                } else if (error) {
+                    // Handle specific errors or show generic message
+                    console.error(`${isSignUpMode ? 'Sign Up' : 'Sign In'} Error:`, error);
+                    await showAuthErrorPopup(`${isSignUpMode ? 'Sign Up' : 'Sign In'} Failed`, errorMessage || `An unknown error occurred.`);
+                } else {
+                     // Handle edge cases like email confirmation required for sign up
+                     if (isSignUpMode && !responseData?.session && responseData?.user) {
+                         console.log("Sign up requires email confirmation.");
+                         success = true; // Treat as success for UI flow, but show info message
+                         successTitle = "Sign Up Pending";
+                         await Swal.fire({
+                             icon: 'info',
+                             title: successTitle,
+                             text: 'Please check your email to confirm your account before signing in.',
+                             confirmButtonText: 'OK',
+                             customClass: {
+                                 popup: 'swal2-popup',
+                                 confirmButton: 'swal2-confirm', // Green confirm
+                                 title: 'swal2-title',
+                                 icon: 'swal2-icon swal2-info'
+                             }
+                         });
+                     } else {
+                         // Unknown outcome
+                         console.error("Unknown auth outcome:", responseData);
+                         await showAuthErrorPopup('Authentication Issue', 'An unexpected issue occurred. Please try again.');
+                     }
+                }
+
+                // If successful (including pending confirmation), show success popup and redirect
+                if (success) {
+                    // Only show the standard success popup if immediate login occurred (session exists)
+                    if (responseData?.session) {
+                        await showAuthSuccessPopup(successTitle);
+                    }
+                    // Redirect to tool view regardless of confirmation needed
+                    // The auth state listener will ensure the correct UI state
+                    showView('tool');
+                    showPage('upload'); // Default to upload page after auth
+                }
+
+            } catch (err) {
+                // Catch unexpected errors during the process
+                console.error("Unexpected submission error:", err);
+                 await showAuthErrorPopup('Error', 'An unexpected error occurred. Please try again.');
+            } finally {
+                // Re-enable the button ONLY if the process didn't result in an immediate logged-in session
+                // This prevents double submission but allows retries on failure or pending confirmation
+                if (!success || (isSignUpMode && !responseData?.session && responseData?.user)) {
+                    authSubmitButton.disabled = false;
+                    authButtonText.textContent = originalButtonText; // Restore original text
+                    // Restore correct icon based on mode
+                    authButtonIcon.className = isSignUpMode ? 'fas fa-user-plus' : 'fas fa-arrow-right-to-bracket';
+                }
+                // If successful login (session exists), the button remains disabled as the view changes.
+            }
+        });
+
+        // --- Initialization ---
         function initializeApp() {
-            history.replaceState({ page: 'upload' }, '', '');
-            showPage('upload');
-            console.log('Plant Identifier UI Initialized.');
-            // No API key check here anymore
+             initializeSupabase(); // Sets up auth listener which handles initial state & view
+
+             // Initial view logic based on URL hash, handled by popstate listener and auth state changes
+             // We need to handle the initial load based on the hash
+             const currentHash = window.location.hash;
+
+             // Supabase listener (handleAuthStateChange) will manage transitions
+             // based on login status. We just need to respect the initial hash request.
+             if (currentHash === '#account') {
+                 // Attempt to show account view; handleAuthStateChange will redirect if not logged in
+                 showView('account');
+             } else if (currentHash === '#auth') {
+                 showView('auth');
+             } else {
+                 // Default to tool view
+                 showView('tool');
+                 if (currentHash === '#results') {
+                     // If hash is #results, show results page (e.g., refresh)
+                     // Note: Data won't persist on refresh unless stored/refetched
+                     showPage('results');
+                 } else {
+                     // Otherwise, show upload page
+                     showPage('upload');
+                     // Clean up any other invalid hash
+                     if (currentHash && currentHash !== '#') {
+                         history.replaceState({ view: 'tool', page: 'upload' }, '', window.location.pathname);
+                     }
+                 }
+             }
+
+             console.log('Plant Identifier UI Initialized.');
+             if (!SUPABASE_URL || !SUPABASE_ANON_KEY) { console.warn("Supabase URL or Anon Key is missing. Authentication will fail."); }
+             if (!_supabase) { console.warn("Supabase client failed to initialize. Authentication features will be unavailable."); }
         }
 
+        // Initialize the application once the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', initializeApp);
 
     </script>
